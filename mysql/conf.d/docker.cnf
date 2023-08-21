@@ -1,0 +1,12 @@
+[client]
+default-character-set=utf8
+[mysql]
+default-character-set=utf8
+[mysqld]
+default-storage-engine=INNODB
+character-set-server=utf8mb4
+collation-server=utf8mb4_general_ci
+lower_case_table_names=1
+default-time-zone='+8:00'
+explicit_defaults_for_timestamp=true
+max_allowed_packet=128M

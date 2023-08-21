@@ -1,0 +1,4 @@
+/mysql/data/*
+/mysql/initdb/*
+
+/rabbitmq/data/*

@@ -1,0 +1,195 @@
+version: "3.5"
+
+services:
+  # MySQL 5.7 for OIX
+  oix-mysql:
+    image: mysql:5.7.22
+    container_name: oix-mysql
+    restart: always
+    privileged: true
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=root
+      - MYSQL_PASS=root
+      - TZ=Asia/Hong_kong
+    ports:
+      - 3306:3306
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+      - ./mysql/conf.d/docker.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql/initdb:/docker-entrypoint-initdb.d
+    networks:
+      oix-mysql-network:
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.11.15-management-alpine
+    restart: always
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ./rabbitmq/data:/var/lib/rabbitmq
+      - ./rabbitmq/definitions.json:/opt/definitions.json
+      - ./rabbitmq/rabbitmq.config:/etc/rabbitmq/rabbitmq.config
+    container_name: rabbitmq
+    hostname: rabbitmq
+    networks:
+      rabbit-network:
+
+  # Redis
+  # Master 1
+  redis7001:
+    image: 'redis:6.0.9-alpine'
+    container_name: redis7001
+    restart: always
+    command:
+      ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis-cluster/7001/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis-cluster/7001/data:/var/lib/data
+    ports:
+      - 7001:7001
+      - 17001:17001
+    networks:
+        redis-network:
+            ipv4_address: 172.32.0.2
+    environment:
+      - TZ=Asia/Hong_kong 
+
+  # Master 2
+  redis7002:
+    image: 'redis:6.0.9-alpine'
+    container_name: redis7002
+    restart: always
+    command:
+      ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis-cluster/7002/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis-cluster/7002/data:/var/lib/data
+    ports:
+      - 7002:7002
+      - 17002:17002
+    networks:
+        redis-network:
+            ipv4_address: 172.32.0.3
+    environment:
+      - TZ=Asia/Hong_kong
+
+  # Master 3
+  redis7003:
+    image: 'redis:6.0.9-alpine'
+    container_name: redis7003
+    restart: always
+    command:
+      ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis-cluster/7003/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis-cluster/7003/data:/var/lib/data
+    ports:
+      - 7003:7003
+      - 17003:17003
+    networks:
+        redis-network:
+            ipv4_address: 172.32.0.4
+    environment:
+      - TZ=Asia/Hong_kong
+
+  # Slave 1
+  redis7004:
+    image: 'redis:6.0.9-alpine'
+    container_name: redis7004
+    restart: always
+    command:
+      ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis-cluster/7004/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis-cluster/7004/data:/var/lib/data
+    ports:
+      - 7004:7004
+      - 17004:17004
+    networks:
+        redis-network:
+            ipv4_address: 172.32.0.5
+    environment:
+      - TZ=Asia/Hong_kong
+    depends_on:
+      - redis7001
+      - redis7002
+      - redis7003
+
+  # Slave 2
+  redis7005:
+    image: 'redis:6.0.9-alpine'
+    container_name: redis7005
+    restart: always
+    command:
+      ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis-cluster/7005/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis-cluster/7005/data:/var/lib/data
+    ports:
+      - 7005:7005
+      - 17005:17005
+    networks:
+        redis-network:
+            ipv4_address: 172.32.0.6
+    environment:
+      - TZ=Asia/Hong_kong
+    depends_on:
+      - redis7001
+      - redis7002
+      - redis7003
+
+  # Slave 3
+  redis7006:
+    image: 'redis:6.0.9-alpine'
+    container_name: redis7006
+    restart: always
+    command:
+      ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis-cluster/7006/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis-cluster/7006/data:/var/lib/data
+    ports:
+      - 7006:7006
+      - 17006:17006
+    networks:
+        redis-network:
+            ipv4_address: 172.32.0.7
+    environment:
+      - TZ=Asia/Hong_kong
+    depends_on:
+      - redis7001
+      - redis7002
+      - redis7003
+
+  # Cluster Creator
+  redis-cluster-creator:
+    image: 'redis:6.0.9-alpine'
+    container_name: cluster-creator
+    entrypoint: [/bin/sh,-c,'echo "yes" | redis-cli -a 123456 --cluster create 172.32.0.2:7001 172.32.0.3:7002 172.32.0.4:7003 172.32.0.5:7004 172.32.0.6:7005 172.32.0.7:7006 --cluster-replicas 1']
+    networks:
+      redis-network:
+    depends_on:
+      - redis7001
+      - redis7002
+      - redis7003
+      - redis7004
+      - redis7005
+      - redis7006
+
+networks:
+  oix-mysql-network:
+    name: oix-mysql-network
+    driver: bridge
+  rabbit-network:
+    name: rabbit-network
+    driver: bridge
+  redis-network:
+    name: redis-network
+    driver: bridge
+    ipam:
+        driver: default
+        config:
+          - subnet: 172.32.0.0/16
